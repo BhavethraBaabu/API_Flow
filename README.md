@@ -1,6 +1,7 @@
 # APIFlow
 
-**Real-time API reliability monitoring platform** — built as an event-driven
+**Real-time API reliability monitoring platform** — built as an event-drive
+
 microservices system that ingests live API traffic, detects latency spikes
 and failures, auto-creates incidents, and surfaces everything on a live
 dashboard.

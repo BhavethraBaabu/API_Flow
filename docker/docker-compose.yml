@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: apiflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-apiflow}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-apiflow}
+      POSTGRES_DB: apiflow_auth
+    ports:
+      - "5432:5432"
+    volumes:
+      - apiflow_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-apiflow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - apiflow-net
+
+  authentication-service:
+    build:
+      context: ../authentication-service
+      dockerfile: Dockerfile
+    container_name: apiflow-auth-service
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_USERNAME: ${DB_USERNAME:-apiflow}
+      DB_PASSWORD: ${DB_PASSWORD:-apiflow}
+      JWT_SECRET: ${JWT_SECRET:-c2hoLWRvbnQtdGVsbC1hbnlvbmUtdGhpcy1pcy1hLWRldi1zZWNyZXQta2V5}
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - apiflow-net
+
+  gateway-service:
+    build:
+      context: ../gateway-service
+      dockerfile: Dockerfile
+    container_name: apiflow-gateway-service
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8080:8080"
+    depends_on:
+      - authentication-service
+    networks:
+      - apiflow-net
+
+networks:
+  apiflow-net:
+    driver: bridge
+
+volumes:
+  apiflow_postgres_data:

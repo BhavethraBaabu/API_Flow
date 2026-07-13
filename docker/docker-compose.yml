@@ -1,63 +1,27 @@
-version: "3.9"
-
-services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: apiflow-postgres
+zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: apiflow-zookeeper
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USERNAME:-apiflow}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-apiflow}
-      POSTGRES_DB: apiflow_auth
-    ports:
-      - "5432:5432"
-    volumes:
-      - apiflow_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-apiflow}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
     networks:
       - apiflow-net
 
-  authentication-service:
-    build:
-      context: ../authentication-service
-      dockerfile: Dockerfile
-    container_name: apiflow-auth-service
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: apiflow-kafka
     restart: unless-stopped
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      DB_USERNAME: ${DB_USERNAME:-apiflow}
-      DB_PASSWORD: ${DB_PASSWORD:-apiflow}
-      JWT_SECRET: ${JWT_SECRET:-c2hoLWRvbnQtdGVsbC1hbnlvbmUtdGhpcy1pcy1hLWRldi1zZWNyZXQta2V5}
-    ports:
-      - "8081:8081"
     depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - apiflow-net
-
-  gateway-service:
-    build:
-      context: ../gateway-service
-      dockerfile: Dockerfile
-    container_name: apiflow-gateway-service
-    restart: unless-stopped
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
+      - zookeeper
     ports:
-      - "8080:8080"
-    depends_on:
-      - authentication-service
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     networks:
       - apiflow-net
-
-networks:
-  apiflow-net:
-    driver: bridge
-
-volumes:
-  apiflow_postgres_data:

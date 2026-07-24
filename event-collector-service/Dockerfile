@@ -12,5 +12,5 @@ WORKDIR /app
 RUN addgroup -S apiflow && adduser -S apiflow -G apiflow
 COPY --from=build /app/target/*.jar app.jar
 USER apiflow
-EXPOSE 8080
+EXPOSE 8082
 ENTRYPOINT ["java", "-jar", "app.jar"]

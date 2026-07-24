@@ -1,4 +1,5 @@
-zookeeper:
+services:
+  zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
     container_name: apiflow-zookeeper
     restart: unless-stopped
@@ -25,3 +26,69 @@ zookeeper:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     networks:
       - apiflow-net
+
+  postgres-auth:
+    image: postgres:16-alpine
+    container_name: apiflow-postgres-auth
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: apiflow_auth
+      POSTGRES_USER: apiflow
+      POSTGRES_PASSWORD: apiflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - apiflow-postgres-auth-data:/var/lib/postgresql/data
+    networks:
+      - apiflow-net
+
+  authentication-service:
+    build:
+      context: ../authentication-service
+    container_name: apiflow-authentication-service
+    restart: unless-stopped
+    depends_on:
+      - postgres-auth
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      JWT_SECRET: change-this-to-a-long-random-secret-value-in-prod-please
+    ports:
+      - "8081:8081"
+    networks:
+      - apiflow-net
+
+  event-collector-service:
+    build:
+      context: ../event-collector-service
+    container_name: apiflow-event-collector-service
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8082:8082"
+    networks:
+      - apiflow-net
+
+  gateway-service:
+    build:
+      context: ../gateway-service
+    container_name: apiflow-gateway-service
+    restart: unless-stopped
+    depends_on:
+      - authentication-service
+      - event-collector-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8080:8080"
+    networks:
+      - apiflow-net
+
+networks:
+  apiflow-net:
+    driver: bridge
+
+volumes:
+  apiflow-postgres-auth-data:
